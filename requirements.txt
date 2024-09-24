@@ -1,0 +1,4 @@
+streamlit==1.27.2
+faster-whisper
+torch==2.4.0
+streamlit_webrtc
