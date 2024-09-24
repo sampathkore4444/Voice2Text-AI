@@ -2,13 +2,16 @@ import streamlit as st
 from faster_whisper import WhisperModel
 import os
 from io import BytesIO
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, ClientSettings,WebRtcMode
+from audio_recorder_streamlit import audio_recorder
 import numpy as np
-import av
 
 # Title and sidebar for the app
-st.title("AI Podcast Transcriber with Audio Recording")
+st.title("Voice2Text AI Transcriber")
 st.sidebar.header("Transcription Section")
+
+# Record audio using the audio recorder
+audio_bytes = audio_recorder(pause_threshold=2.0, sample_rate=41000)
+st.audio(audio_bytes, format="audio/wav")
 
 # Caching the Whisper model
 @st.cache_resource
@@ -21,44 +24,21 @@ def load_model():
 if "transcript" not in st.session_state:
     st.session_state.transcript = ""
 
-# Class to process live audio data
-class AudioProcessor(AudioProcessorBase):
-    def __init__(self):
-        self.buffers = []
-
-    def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
-        audio = frame.to_ndarray()
-        self.buffers.append(audio)
-        return frame
-
-# Audio recording button using webrtc_streamer
-webrtc_ctx = webrtc_streamer(
-    key="audio-record",
-     mode=WebRtcMode.SENDONLY,
-    audio_processor_factory=AudioProcessor,
-    rtc_configuration={
-        "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}],
-    },
-    media_stream_constraints={"audio": True, "video": False},
-    async_processing=True,
-)
-
 start_transcribe_button = st.sidebar.button("Start Transcription")
 
 if start_transcribe_button:
-    if webrtc_ctx.audio_processor and webrtc_ctx.audio_processor.buffers:
+    if audio_bytes:
+        
+
         st.sidebar.markdown("Note: AI is acting on it! Please wait...")
 
         model = load_model()
 
         st.sidebar.info("Transcribing recorded audio...")
 
-        audio_data = np.concatenate(webrtc_ctx.audio_processor.buffers, axis=1)
-        audio_bytes = BytesIO(audio_data.tobytes())
-
         # Display a progress bar during processing
         with st.spinner('Transcribing...'):
-            segments, info = model.transcribe(audio_bytes, beam_size=5, language="en", condition_on_previous_text=False)
+            segments, info = model.transcribe(BytesIO(audio_bytes), beam_size=5, condition_on_previous_text=False)
 
         # Show detected language and probability
         st.write(f"Detected language: {info.language} with probability {info.language_probability:.2f}")
@@ -66,9 +46,10 @@ if start_transcribe_button:
         transcript = ""
 
         for segment in segments:
-            st.markdown(segment.text)
-            transcript += f"{segment.text}"
-            st.session_state.transcript += transcript
+            # st.markdown(segment.text)
+            transcript += f"{segment.text} "
+        
+        st.session_state.transcript = transcript
 
         st.text_area("Transcript", transcript, height=300)
 
@@ -83,12 +64,7 @@ if start_transcribe_button:
 
         st.sidebar.success("Transcription Complete")
 
-        # Option to display summary as bullet points
-        if st.checkbox("Display summary in bullet points"):
-            bullets = st.session_state.transcript.split(".")
-            for bullet in bullets:
-                if bullet.strip():
-                    st.markdown(f"- {bullet.strip()}")
+       
     else:
         st.sidebar.error("Please record some audio first.")
 
