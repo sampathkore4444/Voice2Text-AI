@@ -5,6 +5,15 @@ from io import BytesIO
 from audio_recorder_streamlit import audio_recorder
 import numpy as np
 
+from streamlit_autorefresh import st_autorefresh
+
+# -----------------------------
+# Streamlit auto-refresh
+# -----------------------------
+st_autorefresh(interval=15000, key="refresh")  # 15 sec refresh
+
+
+
 # Title and sidebar for the app
 st.title("Voice2Text AI Transcriber")
 st.sidebar.header("Transcription Section")
